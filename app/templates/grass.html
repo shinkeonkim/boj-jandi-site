@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOJ Jandi - {{ handle }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-glow"></div>
+    <div class="container" style="max-width: 1400px;">
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <a href="/" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">&larr; 다시 검색</a>
+                <h2 style="margin: 0; color: var(--secondary-color);">@{{ handle }}</h2>
+                <div id="status-badge" style="font-size: 0.8rem; opacity: 0.6;">데이터 확인 중...</div>
+            </div>
+
+            <div id="loader" class="loader" style="display: block;"></div>
+            
+            <div id="canvas-container" style="display: none;">
+                <canvas id="grassCanvas"></canvas>
+            </div>
+            
+            <p id="error-msg" style="color: #ff5252; display: none;"></p>
+        </div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        const handle = "{{ handle }}";
+        const canvas = document.getElementById('grassCanvas');
+        const ctx = canvas.getContext('2d');
+        const loader = document.getElementById('loader');
+        const canvasContainer = document.getElementById('canvas-container');
+        const statusBadge = document.getElementById('status-badge');
+        const errorMsg = document.getElementById('error-msg');
+        const tooltip = document.getElementById('tooltip');
+
+        const MIN_ID = 1000;
+        const MAX_ID = 40000;
+        const CELL_SIZE = 10;
+        const CELL_GAP = 2;
+        const COLOR_EMPTY = 'rgba(255, 255, 255, 0.05)';
+        const COLOR_SOLVED = '#03dac6';
+
+        let solvedSet = new Set();
+        let COLUMNS = 100;
+        let ROWS = 0;
+        let pollInterval = null;
+
+        async function fetchData() {
+            try {
+                const response = await fetch(`/api/grass/${handle}`);
+                if (!response.ok) throw new Error('정보를 가져오는데 실패했습니다.');
+                
+                const data = await response.json();
+                
+                if (data.status === 'pending') {
+                    statusBadge.innerText = '갱신 중...';
+                    // If we have some old pids, we could show them, but for now let's wait
+                    // Or show partial if available? 
+                    if (data.pids && data.pids.length > 0) {
+                         solvedSet = new Set(data.pids);
+                         initCanvas();
+                         loader.style.display = 'none';
+                         canvasContainer.style.display = 'block';
+                         statusBadge.innerText = '갱신 중... (이전 데이터 표시)';
+                    }
+                    
+                    if (!pollInterval) {
+                        pollInterval = setTimeout(fetchData, 2000); // Poll every 2 seconds
+                    } else {
+                        pollInterval = setTimeout(fetchData, 2000);
+                    }
+                } else if (data.status === 'completed') {
+                    solvedSet = new Set(data.pids);
+                    
+                    loader.style.display = 'none';
+                    canvasContainer.style.display = 'block';
+                    statusBadge.innerText = '완료됨';
+                    
+                    initCanvas();
+                    if (pollInterval) clearTimeout(pollInterval);
+                } else if (data.status === 'error') {
+                     loader.style.display = 'none';
+                     errorMsg.innerText = "데이터 갱신 중 오류가 발생했습니다.";
+                     errorMsg.style.display = 'block';
+                     statusBadge.innerText = '오류';
+                     if (pollInterval) clearTimeout(pollInterval);
+                }
+
+            } catch (err) {
+                // Network error, retry?
+                console.error(err);
+                if (!pollInterval) pollInterval = setTimeout(fetchData, 3000);
+            }
+        }
+
+        function initCanvas() {
+            const totalItems = MAX_ID - MIN_ID + 1;
+            const availableWidth = canvasContainer.clientWidth - 40;
+            COLUMNS = Math.floor(availableWidth / (CELL_SIZE + CELL_GAP));
+            if (COLUMNS < 50) COLUMNS = 50;
+
+            ROWS = Math.ceil(totalItems / COLUMNS);
+            canvas.width = COLUMNS * (CELL_SIZE + CELL_GAP);
+            canvas.height = ROWS * (CELL_SIZE + CELL_GAP);
+
+            draw();
+        }
+
+        function draw() {
+            const totalItems = MAX_ID - MIN_ID + 1;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < totalItems; i++) {
+                const pid = MIN_ID + i;
+                const row = Math.floor(i / COLUMNS);
+                const col = i % COLUMNS;
+
+                const x = col * (CELL_SIZE + CELL_GAP);
+                const y = row * (CELL_SIZE + CELL_GAP);
+
+                ctx.fillStyle = solvedSet.has(pid) ? COLOR_SOLVED : COLOR_EMPTY;
+                ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+            }
+        }
+
+        function getProblemFromCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            const col = Math.floor(x / (CELL_SIZE + CELL_GAP));
+            const row = Math.floor(y / (CELL_SIZE + CELL_GAP));
+
+            if (col < 0 || col >= COLUMNS || row < 0 || row >= ROWS) return null;
+
+            const index = row * COLUMNS + col;
+            const pid = MIN_ID + index;
+
+            return pid > MAX_ID ? null : pid;
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const pid = getProblemFromCoords(e);
+            if (pid) {
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.pageX + 15) + 'px';
+                tooltip.style.top = (e.pageY + 15) + 'px';
+                tooltip.innerHTML = `<strong>Problem ${pid}</strong><br>${solvedSet.has(pid) ? 'Solved 🟢' : 'Not Solved yet'}`;
+                canvas.style.cursor = 'pointer';
+            } else {
+                tooltip.style.display = 'none';
+                canvas.style.cursor = 'default';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const pid = getProblemFromCoords(e);
+            if (pid) {
+                window.open(`https://www.acmicpc.net/problem/${pid}`, '_blank');
+            }
+        });
+
+        window.addEventListener('resize', initCanvas);
+        fetchData();
+    </script>
+</body>
+</html>
