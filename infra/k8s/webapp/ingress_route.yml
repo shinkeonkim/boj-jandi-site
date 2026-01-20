@@ -1,0 +1,48 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: boj-jandi-ingress
+  namespace: boj-jandi
+spec:
+  entryPoints:
+  - websecure
+  routes:
+  - match: Host(`xn--2z1bx8k47jumb.xn--hy1by51c.kr`)
+    kind: Rule
+    services:
+    - name: boj-jandi-webapp-svc
+      port: 80
+  tls:
+    secretName: boj-jandi-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: boj-jandi-ingress-http
+  namespace: boj-jandi
+spec:
+  entryPoints:
+  - web
+  routes:
+  - match: Host(`xn--2z1bx8k47jumb.xn--hy1by51c.kr`) && PathPrefix(`/.well-known/acme-challenge/`)
+    kind: Rule
+    services:
+    - name: boj-jandi-webapp-svc
+      port: 80
+  - match: Host(`xn--2z1bx8k47jumb.xn--hy1by51c.kr`)
+    kind: Rule
+    services:
+    - name: boj-jandi-webapp-svc
+      port: 80
+    middlewares:
+    - name: boj-jandi-redirect-to-https
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: boj-jandi-redirect-to-https
+  namespace: boj-jandi
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

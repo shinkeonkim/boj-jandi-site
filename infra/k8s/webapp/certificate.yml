@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: boj-jandi-certificate
+  namespace: boj-jandi
+spec:
+  secretName: boj-jandi-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - xn--2z1bx8k47jumb.xn--hy1by51c.kr
