@@ -8,12 +8,12 @@ import random
 from playwright.sync_api import sync_playwright
 
 # Create a new engine for background tasks
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    POSTGRES_USER = os.getenv("POSTGRES_USER", "user")
-    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
-    POSTGRES_DB = os.getenv("POSTGRES_DB", "bojjandi")
-    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
+POSTGRES_USER = os.getenv("POSTGRES_USER", "user")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "bojjandi")
+DATABASE_HOST = os.getenv("DATABASE_HOST", "localhost")
+DATABASE_PORT = os.getenv("DATABASE_PORT", "5432")
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{POSTGRES_DB}"
 
 bg_engine = create_engine(DATABASE_URL)
 
