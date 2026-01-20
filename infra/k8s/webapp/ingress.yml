@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: boj-jandi-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+  - hosts:
+    - xn--2z1bx8k47jumb.xn--hy1by51c.kr
+    secretName: boj-jandi-tls
+  rules:
+  - host: xn--2z1bx8k47jumb.xn--hy1by51c.kr
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: boj-jandi-webapp-svc
+            port:
+              number: 80

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: boj-jandi-db
+spec:
+  serviceName: boj-jandi-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boj-jandi-db
+  template:
+    metadata:
+      labels:
+        app: boj-jandi-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15.4
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: boj-jandi-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: boj-jandi-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: boj-jandi-secret
+              key: POSTGRES_DB
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: db-data
+    spec:
+      storageClassName: nfs-client
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
