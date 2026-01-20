@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+build/
+dist/
+wheels/
+
+# Virtual environments
+.venv/
+.python-version
+
+# Environment variables & Secrets
+.env
+infra/k8s/common/secret.yml
+
+# IDE files
+.vscode/
+.idea/
