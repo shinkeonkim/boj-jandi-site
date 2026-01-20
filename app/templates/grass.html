@@ -60,9 +60,9 @@
                 // Or show partial if available? 
                 if (data.pids && data.pids.length > 0) {
                         solvedSet = new Set(data.pids);
-                        initCanvas();
                         loader.style.display = 'none';
                         canvasContainer.style.display = 'block';
+                        initCanvas();
                         statusBadge.innerText = '갱신 중... (이전 데이터 표시)';
                 }
                 
@@ -97,9 +97,23 @@
 
     function initCanvas() {
         const totalItems = MAX_ID - MIN_ID + 1;
-        const availableWidth = canvasContainer.clientWidth - 40;
-        COLUMNS = Math.floor(availableWidth / (CELL_SIZE + CELL_GAP));
-        if (COLUMNS < 50) COLUMNS = 50;
+        // Adjust for potential padding/margin issues
+        const availableWidth = canvasContainer.clientWidth - 20; 
+        
+        // Calculate max possible columns that fit
+        let maxPossibleCols = Math.floor(availableWidth / (CELL_SIZE + CELL_GAP));
+        
+        // Snap to nearest lower 10
+        // e.g., 95 -> 90, 82 -> 80
+        let newCols = Math.floor(maxPossibleCols / 10) * 10;
+        
+        // Max limit 100
+        if (newCols > 100) newCols = 100;
+        
+        // Min limit to avoid too narrow (optional, but good for safety)
+        if (newCols < 10) newCols = 10;
+        
+        COLUMNS = newCols;
 
         ROWS = Math.ceil(totalItems / COLUMNS);
         canvas.width = COLUMNS * (CELL_SIZE + CELL_GAP);
