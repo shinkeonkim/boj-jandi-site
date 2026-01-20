@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: boj-jandi-config
+  namespace: boj-jandi
 data:
   DATABASE_HOST: boj-jandi-db
   DATABASE_PORT: "5432"

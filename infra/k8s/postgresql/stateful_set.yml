@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: boj-jandi-db
+  namespace: boj-jandi
 spec:
   serviceName: boj-jandi-db
   replicas: 1
