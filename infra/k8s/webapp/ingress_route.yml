@@ -7,6 +7,12 @@ spec:
   entryPoints:
   - websecure
   routes:
+  - match: Host(`xn--2z1bx8k47jumb.xn--hy1by51c.kr`) && PathPrefix(`/api`)
+    kind: Rule
+    priority: 100
+    services:
+    - name: boj-jandi-webapp-svc
+      port: 80
   - match: Host(`xn--2z1bx8k47jumb.xn--hy1by51c.kr`)
     kind: Rule
     services:
