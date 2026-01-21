@@ -233,13 +233,13 @@
         return { name: `${name} ${roman}`.trim(), color: TIER_COLORS[tier] };
     }
 
-    canvas.addEventListener('mousemove', (e) => {
-        const pid = getProblemFromCoords(e);
-        if (pid) {
+    let selectedPid = null;
+
+    function updateTooltip(pid, x, y) {
             tooltip.style.display = 'block';
-            tooltip.style.left = (e.pageX + 15) + 'px';
-            tooltip.style.top = (e.pageY + 15) + 'px';
-            
+            tooltip.style.left = px = x + 15 + 'px';
+            tooltip.style.top = py = y + 15 + 'px';
+
             let extra = "";
             const title = solvedTitles[pid] ? ` ${solvedTitles[pid]}` : "";
             const header = `<strong>${pid}번:${title}</strong>`;
@@ -259,6 +259,12 @@
             
             tooltip.innerHTML = `${header}${extra}`;
             canvas.style.cursor = 'pointer';
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+        const pid = getProblemFromCoords(e);
+        if (pid) {
+            updateTooltip(pid, e.pageX, e.pageY);
         } else {
             tooltip.style.display = 'none';
             canvas.style.cursor = 'default';
@@ -267,11 +273,29 @@
 
     canvas.addEventListener('mouseleave', () => {
         tooltip.style.display = 'none';
+        selectedPid = null; // Reset selection on leave
     });
 
     canvas.addEventListener('click', (e) => {
         const pid = getProblemFromCoords(e);
-        if (pid) {
+        if (!pid) {
+             selectedPid = null;
+             tooltip.style.display = 'none';
+             return;
+        }
+
+        const isTouch = (e.pointerType === 'touch') || (navigator.maxTouchPoints > 0 && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
+        if (isTouch) {
+            if (selectedPid === pid) {
+                 window.open(`https://www.acmicpc.net/problem/${pid}`, '_blank');
+                 selectedPid = null;
+                 tooltip.style.display = 'none';
+            } else {
+                selectedPid = pid;
+                updateTooltip(pid, e.pageX, e.pageY);
+            }
+        } else {
             window.open(`https://www.acmicpc.net/problem/${pid}`, '_blank');
         }
     });
