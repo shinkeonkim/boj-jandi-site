@@ -16,3 +16,9 @@ class SolvedProblem(SQLModel, table=True):
     problem_id: int = Field(index=True)
     
     user: User = Relationship(back_populates="solved_problems")
+
+class ProblemTier(SQLModel, table=True):
+    problem_id: int = Field(primary_key=True)
+    tier: int = Field(default=0) # 0: Unrated, 1-5: Bronze, ..., 31: Master or something
+    title: Optional[str] = Field(default=None)
+

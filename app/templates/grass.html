@@ -14,6 +14,14 @@
 
     <div id="loader" class="loader" style="display: block;"></div>
     
+    <div class="controls-bar">
+        <label class="toggle-switch">
+            <input type="checkbox" id="show-tier-checkbox" class="toggle-input">
+            <div class="toggle-slider"></div>
+            <span class="toggle-label">티어 보기</span>
+        </label>
+    </div>
+
     <div id="canvas-container" style="display: none;">
         <canvas id="grassCanvas"></canvas>
     </div>
@@ -34,6 +42,7 @@
     const statusBadge = document.getElementById('status-badge');
     const errorMsg = document.getElementById('error-msg');
     const tooltip = document.getElementById('tooltip');
+    const showTierCheckbox = document.getElementById('show-tier-checkbox');
 
     const MIN_ID = 1000;
     const MAX_ID = 40000;
@@ -41,11 +50,25 @@
     const CELL_GAP = 2;
     const COLOR_EMPTY = 'rgba(255, 255, 255, 0.05)';
     const COLOR_SOLVED = '#03dac6';
+    
+    const TIER_COLORS = {
+        0: '#424242', // Unrated
+        1: '#ad5600', 2: '#ad5600', 3: '#ad5600', 4: '#ad5600', 5: '#ad5600', // Bronze
+        6: '#435f7a', 7: '#435f7a', 8: '#435f7a', 9: '#435f7a', 10: '#435f7a', // Silver
+        11: '#ec9a00', 12: '#ec9a00', 13: '#ec9a00', 14: '#ec9a00', 15: '#ec9a00', // Gold
+        16: '#27e2a4', 17: '#27e2a4', 18: '#27e2a4', 19: '#27e2a4', 20: '#27e2a4', // Platinum
+        21: '#00b4fc', 22: '#00b4fc', 23: '#00b4fc', 24: '#00b4fc', 25: '#00b4fc', // Diamond
+        26: '#ff0062', 27: '#ff0062', 28: '#ff0062', 29: '#ff0062', 30: '#ff0062', // Ruby
+    };
 
     let solvedSet = new Set();
+    let solvedTiers = {}; // pid -> tier
+    let solvedTitles = {}; // pid -> title
     let COLUMNS = 100;
     let ROWS = 0;
     let pollInterval = null;
+
+    showTierCheckbox.addEventListener('change', draw);
 
     async function fetchData() {
         try {
@@ -56,10 +79,12 @@
             
             if (data.status === 'pending') {
                 statusBadge.innerText = '갱신 중...';
-                // If we have some old pids, we could show them, but for now let's wait
-                // Or show partial if available? 
+                
                 if (data.pids && data.pids.length > 0) {
                         solvedSet = new Set(data.pids);
+                        // Start fetching details in background
+                        fetchDetailsChunked(data.pids);
+                        
                         loader.style.display = 'none';
                         canvasContainer.style.display = 'block';
                         initCanvas();
@@ -67,7 +92,7 @@
                 }
                 
                 if (!pollInterval) {
-                    pollInterval = setTimeout(fetchData, 2000); // Poll every 2 seconds
+                    pollInterval = setTimeout(fetchData, 2000); 
                 } else {
                     pollInterval = setTimeout(fetchData, 2000);
                 }
@@ -79,6 +104,8 @@
                 statusBadge.innerText = '완료됨';
                 
                 initCanvas();
+                fetchDetailsChunked(data.pids); // Fetch details now
+                
                 if (pollInterval) clearTimeout(pollInterval);
             } else if (data.status === 'error') {
                     loader.style.display = 'none';
@@ -89,28 +116,51 @@
             }
 
         } catch (err) {
-            // Network error, retry?
             console.error(err);
             if (!pollInterval) pollInterval = setTimeout(fetchData, 3000);
+        }
+    }
+    
+    async function fetchDetailsChunked(pids) {
+        // Only fetch if we have PIDs
+        if (!pids || pids.length === 0) return;
+        
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < pids.length; i += CHUNK_SIZE) {
+            const chunk = pids.slice(i, i + CHUNK_SIZE);
+            try {
+                const response = await fetch('/api/grass/details', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pids: chunk })
+                });
+                
+                if (response.ok) {
+                    const details = await response.json();
+                    // Merge
+                    for (const [pid, info] of Object.entries(details)) {
+                        solvedTiers[pid] = info.tier;
+                        solvedTitles[pid] = info.title;
+                    }
+                    // Redraw to show new tiers if checkbox is checked
+                    if (showTierCheckbox.checked) {
+                        draw();
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch details chunk", e);
+            }
         }
     }
 
     function initCanvas() {
         const totalItems = MAX_ID - MIN_ID + 1;
-        // Adjust for potential padding/margin issues
         const availableWidth = canvasContainer.clientWidth - 20; 
         
-        // Calculate max possible columns that fit
         let maxPossibleCols = Math.floor(availableWidth / (CELL_SIZE + CELL_GAP));
-        
-        // Snap to nearest lower 10
-        // e.g., 95 -> 90, 82 -> 80
         let newCols = Math.floor(maxPossibleCols / 10) * 10;
         
-        // Max limit 100
         if (newCols > 100) newCols = 100;
-        
-        // Min limit to avoid too narrow (optional, but good for safety)
         if (newCols < 10) newCols = 10;
         
         COLUMNS = newCols;
@@ -125,6 +175,8 @@
     function draw() {
         const totalItems = MAX_ID - MIN_ID + 1;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const showTier = showTierCheckbox.checked;
 
         for (let i = 0; i < totalItems; i++) {
             const pid = MIN_ID + i;
@@ -133,8 +185,18 @@
 
             const x = col * (CELL_SIZE + CELL_GAP);
             const y = row * (CELL_SIZE + CELL_GAP);
+            
+            let color = COLOR_EMPTY;
+            if (solvedSet.has(pid)) {
+                if (showTier) {
+                    const tier = solvedTiers[pid] || 0;
+                    color = TIER_COLORS[tier] || TIER_COLORS[0];
+                } else {
+                    color = COLOR_SOLVED;
+                }
+            }
 
-            ctx.fillStyle = solvedSet.has(pid) ? COLOR_SOLVED : COLOR_EMPTY;
+            ctx.fillStyle = color;
             ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
         }
     }
@@ -155,13 +217,47 @@
         return pid > MAX_ID ? null : pid;
     }
 
+    const TIER_NAMES = ["Unrated", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ruby"];
+    const ROMAN = ["", "I", "II", "III", "IV", "V"];
+
+    function getTierInfo(tier) {
+        if (!tier || tier === 0) return { name: "Unrated", color: TIER_COLORS[0] };
+        
+        let index = Math.ceil(tier / 5);
+        if (index >= TIER_NAMES.length) index = TIER_NAMES.length - 1;
+        
+        const name = TIER_NAMES[index];
+        const level = 6 - ((tier % 5) || 5); 
+        const roman = ROMAN[level] || "";
+        
+        return { name: `${name} ${roman}`.trim(), color: TIER_COLORS[tier] };
+    }
+
     canvas.addEventListener('mousemove', (e) => {
         const pid = getProblemFromCoords(e);
         if (pid) {
             tooltip.style.display = 'block';
             tooltip.style.left = (e.pageX + 15) + 'px';
             tooltip.style.top = (e.pageY + 15) + 'px';
-            tooltip.innerHTML = `<strong>Problem ${pid}</strong><br>${solvedSet.has(pid) ? 'Solved 🟢' : 'Not Solved yet'}`;
+            
+            let extra = "";
+            const title = solvedTitles[pid] ? ` ${solvedTitles[pid]}` : "";
+            const header = `<strong>${pid}번:${title}</strong>`;
+            
+            // Tier Info (Always shown if showTier is checked)
+            if (showTierCheckbox.checked) {
+                const tier = solvedTiers[pid] || 0;
+                const info = getTierInfo(tier);
+                extra += `<br><span style="color: ${info.color}; font-weight: bold;">${info.name}</span>`;
+            }
+
+            if (solvedSet.has(pid)) {
+                 extra += '<br>Solved 🟢';
+            } else {
+                extra += '<br>Not Solved yet';
+            }
+            
+            tooltip.innerHTML = `${header}${extra}`;
             canvas.style.cursor = 'pointer';
         } else {
             tooltip.style.display = 'none';
