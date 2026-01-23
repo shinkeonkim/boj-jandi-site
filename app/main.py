@@ -80,9 +80,9 @@ async def get_grass_api(handle: str, background_tasks: BackgroundTasks, session:
     # Case 2: Existing User, check cache
     is_recent = (now - user.last_scraped_at < timedelta(hours=1))
     
-    if user.status == "completed" and is_recent:
-        pids = [sp.problem_id for sp in user.solved_problems]
-        return {"status": "completed", "pids": pids, "refreshed": False}
+    if user.status in ["completed", "not_found", "error"] and is_recent:
+        pids = [sp.problem_id for sp in user.solved_problems] if user.status == "completed" else []
+        return {"status": user.status, "pids": pids, "refreshed": False}
 
     # Case 3: Need Refresh
     if user.status == "pending":

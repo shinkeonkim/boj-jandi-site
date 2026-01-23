@@ -36,7 +36,7 @@ def scrape_solved_problems(handle: str):
             if response.status == 404:
                 print(f"User {handle} not found (404)")
                 browser.close()
-                return None
+                return "not_found"
             
             # Additional wait to ensure dynamic content or WAF check completes
             # WAF might show a challenge, Playwright usually handles JS-based challenges automatically if we wait
@@ -94,7 +94,13 @@ def run_background_scrape(handle: str):
 
         try:
             pids = scrape_solved_problems(handle)
-            if pids is None:
+            if pids == "not_found":
+                user.status = "not_found"
+                session.add(user)
+                session.commit()
+                print(f"User {handle} not found on BOJ (404)")
+                return
+            elif pids is None:
                 user.status = "error"
                 session.add(user)
                 session.commit()

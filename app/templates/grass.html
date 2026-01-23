@@ -107,6 +107,12 @@
                 fetchDetailsChunked(data.pids); // Fetch details now
                 
                 if (pollInterval) clearTimeout(pollInterval);
+            } else if (data.status === 'not_found') {
+                    loader.style.display = 'none';
+                    errorMsg.innerText = "찾을 수 없는 유저입니다.";
+                    errorMsg.style.display = 'block';
+                    statusBadge.innerText = '유저 없음';
+                    if (pollInterval) clearTimeout(pollInterval);
             } else if (data.status === 'error') {
                     loader.style.display = 'none';
                     errorMsg.innerText = "데이터 갱신 중 오류가 발생했습니다.";
